@@ -1,4 +1,9 @@
 #![warn(missing_docs)]
+use std::fmt::Display;
+use std::fs::File;
+use std::io::Read;
+use std::sync::Arc;
+
 use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -6,10 +11,6 @@ use playwright::api::Cookie as PlaywrightCookie;
 use rocket::request::Outcome;
 use rocket::request::{self, FromRequest, Request};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-use std::fs::File;
-use std::io::Read;
-use std::sync::Arc;
 
 ///
 /// # BSH JSON Web Token (JWT) Claims
@@ -18,9 +19,9 @@ use std::sync::Arc;
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BSHJWTTokenClaims {
-        /// The expiration time of the token.
+	/// The expiration time of the token.
 	pub exp: u64,
-        /// The cookies that are used by Playwright to authenticate to the BSH website.
+	/// The cookies that are used by Playwright to authenticate to the BSH website.
 	pub bsh_cookies: Vec<PlaywrightCookie>,
 }
 
@@ -52,10 +53,7 @@ impl BSHJWTTokenClaims {
 
 		match token {
 			Ok(token) => Ok(token),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to encode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to encode JWT token: {e:?}")),
 		}
 	}
 
@@ -78,10 +76,7 @@ impl BSHJWTTokenClaims {
 		let claims = decode::<BSHJWTTokenClaims>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(BSHJWTTokenClaims { exp: claims.claims.exp, bsh_cookies: claims.claims.bsh_cookies }),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to decode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
 		}
 	}
 }

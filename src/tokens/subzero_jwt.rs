@@ -1,10 +1,11 @@
 #![deny(missing_docs)]
+use std::sync::Arc;
+
 use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use playwright::api::Cookie as PlaywrightCookie;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 ///
 /// # Subzero JSON Web Token (JWT) Claims
@@ -13,9 +14,9 @@ use std::sync::Arc;
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubZeroJWTTokenClaims {
-        /// The expiration time of the token.
+	/// The expiration time of the token.
 	pub exp: u64,
-        /// The cookies that are used by Playwright to authenticate to the SubZero website.
+	/// The cookies that are used by Playwright to authenticate to the SubZero website.
 	pub subzero_cookies: Vec<PlaywrightCookie>,
 }
 
@@ -41,10 +42,7 @@ impl SubZeroJWTTokenClaims {
 
 		match token {
 			Ok(token) => Ok(token),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to encode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to encode JWT token: {e:?}")),
 		}
 	}
 
@@ -67,10 +65,7 @@ impl SubZeroJWTTokenClaims {
 		let claims = decode::<SubZeroJWTTokenClaims>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(SubZeroJWTTokenClaims { exp: claims.claims.exp, subzero_cookies: claims.claims.subzero_cookies }),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to decode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
 		}
 	}
 }

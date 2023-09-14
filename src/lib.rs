@@ -1,19 +1,19 @@
-pub use api_key::ApiKey;
-pub use user_types::*;
-pub use tokens::*;
-
-use std::sync::Arc;
-use azure_security_keyvault::KeyvaultClient;
-use azure_identity::ImdsManagedIdentityCredential;
 use std::collections::HashMap;
+use std::sync::Arc;
+
+pub use api_key::ApiKey;
+use azure_identity::ImdsManagedIdentityCredential;
+use azure_security_keyvault::KeyvaultClient;
 use rocket::uri;
+pub use tokens::*;
+pub use user_types::*;
 
 mod api_key;
-mod user_types;
 mod tokens;
+mod user_types;
 
 pub async fn microsoft_365_auth_url() -> String {
-        let mut params = HashMap::new();
+	let mut params = HashMap::new();
 	let azure_credentials = ImdsManagedIdentityCredential::default();
 	let client = KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)).unwrap();
 
@@ -33,10 +33,10 @@ pub async fn microsoft_365_auth_url() -> String {
 	params.insert("scope", ms_auth_scope.value);
 	params.insert("state", state);
 
-        url::form_urlencoded::Serializer::new(ms_auth_url.value.to_owned()).extend_pairs(params).finish()
+	url::form_urlencoded::Serializer::new(ms_auth_url.value.to_owned()).extend_pairs(params).finish()
 }
 
 pub async fn microsoft_365_code_to_user_token(code: &str) -> Result<String, String> {
-        let ms_token = MSAccessToken::new(code.to_string()).await;
-        UserJWTTokenClaims::encode(ms_token).await
+	let ms_token = MSAccessToken::new(code.to_string()).await;
+	UserJWTTokenClaims::encode(ms_token).await
 }

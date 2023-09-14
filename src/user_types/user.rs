@@ -1,7 +1,8 @@
-use crate::tokens::UserJWTTokenClaims;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
 use serde::{Deserialize, Serialize};
+
+use crate::tokens::UserJWTTokenClaims;
 
 ///
 /// # User
@@ -25,23 +26,16 @@ impl<'r> FromRequest<'r> for User {
 
 	async fn from_request(request: &'r Request<'_>) -> request::Outcome<User, Self::Error> {
 		let cookie = request.cookies().get("eggersmann-user-jwt");
-		println!("{}", request.uri());
 
 		match cookie {
 			Some(cookie) => {
 				let user = UserJWTTokenClaims::decode(cookie.value()).await;
 				match user {
 					Ok(user) => Outcome::Success(user),
-					Err(e) => {
-						println!("{e:?}");
-						Outcome::Forward(())
-					}
+					Err(_) => Outcome::Forward(()),
 				}
 			}
-			None => {
-				println!("No User cookie found");
-				Outcome::Forward(())
-			}
+			None => Outcome::Forward(()),
 		}
 	}
 }

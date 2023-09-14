@@ -1,22 +1,23 @@
 #![deny(missing_docs)]
-use azure_identity::ImdsManagedIdentityCredential;
-use azure_security_keyvault::KeyvaultClient;
-use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
 use std::sync::Arc;
+
+use azure_identity::ImdsManagedIdentityCredential;
+use azure_security_keyvault::KeyvaultClient;
+use serde::{Deserialize, Serialize};
 
 /// # Microsoft Azure Active Directory Athuentication Token
 /// This token is used to authenticate with the Microsoft Graph API and other Microsoft services.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MSAccessToken {
-        /// Type of token
+	/// Type of token
 	pub token_type: String,
-        /// Expiration duration
+	/// Expiration duration
 	pub expires_in: u64,
-        /// Extention expiration duration
+	/// Extention expiration duration
 	pub ext_expires_in: u64,
-        /// Token
+	/// Token
 	pub access_token: String,
 }
 
@@ -98,10 +99,7 @@ impl MSAccessToken {
 
 		match response.json::<MSAccessToken>().await {
 			Ok(token) => token,
-			Err(e) => {
-				println!("{e:?}");
-				MSAccessToken { token_type: "".to_string(), expires_in: 0, ext_expires_in: 0, access_token: "".to_string() }
-			}
+			Err(_) => MSAccessToken { token_type: "".to_string(), expires_in: 0, ext_expires_in: 0, access_token: "".to_string() },
 		}
 	}
 }

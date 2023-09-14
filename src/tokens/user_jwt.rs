@@ -1,11 +1,13 @@
 #![warn(missing_docs)]
-use crate::user_types::User;
-use super::MSAccessToken;
+use std::sync::Arc;
+
 use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use super::MSAccessToken;
+use crate::user_types::User;
 
 ///
 /// # User JSON Web Token (JWT) Claims
@@ -14,23 +16,23 @@ use std::sync::Arc;
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserJWTTokenClaims {
-        /// User ID
+	/// User ID
 	pub id: String,
-        /// Given name of user
+	/// Given name of user
 	pub given_name: Option<String>,
-        /// User last name
+	/// User last name
 	pub surname: Option<String>,
-        /// Display name of user
+	/// Display name of user
 	pub display_name: Option<String>,
-        /// User job title
+	/// User job title
 	pub job_title: Option<String>,
-        /// User first name
+	/// User first name
 	pub user_principal_name: Option<String>,
-        /// User's office location
+	/// User's office location
 	pub office_location: Option<String>,
-        /// MS Access Token
+	/// MS Access Token
 	pub ms_token: MSAccessToken,
-        /// Expiration timestamp
+	/// Expiration timestamp
 	pub exp: u64,
 }
 
@@ -74,8 +76,6 @@ impl UserJWTTokenClaims {
 					exp: jsonwebtoken::get_current_timestamp() + ms_token.expires_in,
 				};
 
-				println!("tonken expires in {}", ms_token.expires_in);
-
 				let azure_credentials = ImdsManagedIdentityCredential::default();
 				let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
 					Ok(client) => client,
@@ -91,16 +91,10 @@ impl UserJWTTokenClaims {
 
 				match token {
 					Ok(token) => Ok(token),
-					Err(e) => {
-						println!("{e:?}");
-						Err("Failed to encode JWT token".to_string())
-					}
+					Err(e) => Err(format!("Failed to encode JWT token: {e:?}")),
 				}
 			}
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to get user info".to_string())
-			}
+			Err(e) => Err(format!("Failed to get user info: {e:?}")),
 		}
 	}
 
@@ -123,10 +117,7 @@ impl UserJWTTokenClaims {
 		let claims = decode::<UserJWTTokenClaims>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(User { token: claims.claims }),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to decode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
 		}
 	}
 }

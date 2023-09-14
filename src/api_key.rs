@@ -1,14 +1,15 @@
-use rocket::http::Status;
-use rocket::request::{FromRequest, Outcome, Request};
+use std::sync::Arc;
+
 use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
-use std::sync::Arc;
+use rocket::http::Status;
+use rocket::request::{FromRequest, Outcome, Request};
 
 pub struct ApiKey(String);
 
 /// Returns true if `key` is a valid API key string.
 async fn is_valid(key: &str) -> bool {
-        let azure_credentials = ImdsManagedIdentityCredential::default();
+	let azure_credentials = ImdsManagedIdentityCredential::default();
 	let client = KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)).unwrap();
 	let api_key = client.secret_client().get("workbook-api-key").await.unwrap().value;
 	key == api_key

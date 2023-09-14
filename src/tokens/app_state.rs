@@ -1,10 +1,12 @@
 #![deny(missing_docs)]
-use crate::user_types::AppState;
+use std::sync::Arc;
+
 use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use crate::user_types::AppState;
 
 ///
 /// # Application State (AppState) JSON Web Token (JWT) Claims
@@ -16,9 +18,9 @@ use std::sync::Arc;
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppStateTokenClaims {
-        /// The current user route.
+	/// The current user route.
 	pub uri: Option<String>,
-        /// The expiration timestamp of the token.
+	/// The expiration timestamp of the token.
 	pub exp: u64,
 }
 
@@ -43,10 +45,7 @@ impl AppStateTokenClaims {
 
 		match token {
 			Ok(token) => Ok(token),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to encode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to encode JWT token: {e:?}")),
 		}
 	}
 
@@ -69,10 +68,7 @@ impl AppStateTokenClaims {
 		let claims = decode::<AppStateTokenClaims>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(AppState { token: claims.claims }),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to decode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
 		}
 	}
 }

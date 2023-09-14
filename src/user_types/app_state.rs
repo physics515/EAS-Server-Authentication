@@ -1,5 +1,6 @@
-use crate::tokens::AppStateTokenClaims;
 use serde::{Deserialize, Serialize};
+
+use crate::tokens::AppStateTokenClaims;
 
 ///
 /// # Application State

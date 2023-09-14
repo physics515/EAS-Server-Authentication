@@ -1,4 +1,9 @@
 #![allow(dead_code)]
+use std::fmt::Display;
+use std::str;
+use std::str::FromStr;
+use std::sync::Arc;
+
 use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use chrono::prelude::*;
@@ -6,10 +11,6 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use rand::random;
 use rocket::serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fmt::Display;
-use std::str;
-use std::str::FromStr;
-use std::sync::Arc;
 
 ///
 /// # Workbook JSON Web Token (JWT) Claims
@@ -20,11 +21,11 @@ use std::sync::Arc;
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkbookJWTTokenClaims {
-        /// The key for the workbook.
+	/// The key for the workbook.
 	pub key: String,
-        /// The version of the workbook.
+	/// The version of the workbook.
 	pub version: WorkBookVersions,
-        /// The expiration time of the token.
+	/// The expiration time of the token.
 	pub exp: u64,
 }
 
@@ -34,9 +35,6 @@ impl WorkbookJWTTokenClaims {
 	///
 	pub async fn encode(key: String, version: WorkBookVersions) -> Result<String, String> {
 		let jwt_token_claim = WorkbookJWTTokenClaims { key, version, exp: jsonwebtoken::get_current_timestamp() + 3124135674 };
-
-		println!("tonken expires in {:?}", 3124135674_u32);
-
 		let azure_credentials = ImdsManagedIdentityCredential::default();
 		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
 			Ok(client) => client,
@@ -52,10 +50,7 @@ impl WorkbookJWTTokenClaims {
 
 		match token {
 			Ok(token) => Ok(token),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to encode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to encode JWT token: {e:?}")),
 		}
 	}
 
@@ -78,10 +73,7 @@ impl WorkbookJWTTokenClaims {
 		let claims = decode::<WorkbookJWTTokenClaims>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(claims.claims),
-			Err(e) => {
-				println!("{e:?}");
-				Err("Failed to decode JWT token".to_string())
-			}
+			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
 		}
 	}
 
@@ -104,15 +96,16 @@ impl WorkbookJWTTokenClaims {
 /// # Workbook Versions
 /// The version of the workbook.
 /// This is used to determine which version of the workbook to use.
-/// 
+///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WorkBookVersions {
-        /// Version 35.9.4 of the workbook.
+	/// Version 35.9.4 of the workbook.
 	V35_9_4,
 }
 
 impl FromStr for WorkBookVersions {
 	type Err = ();
+
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s.to_lowercase().as_str() {
 			"v35.9.4" => Ok(WorkBookVersions::V35_9_4),
