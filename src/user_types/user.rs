@@ -1,3 +1,4 @@
+use rocket::http::Status;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
 use serde::{Deserialize, Serialize};
@@ -32,10 +33,10 @@ impl<'r> FromRequest<'r> for User {
 				let user = UserJWTTokenClaims::decode(cookie.value()).await;
 				match user {
 					Ok(user) => Outcome::Success(user),
-					Err(_) => Outcome::Forward(()),
+					Err(_) => Outcome::Forward(Status::BadRequest),
 				}
 			}
-			None => Outcome::Forward(()),
+			None => Outcome::Forward(Status::BadRequest),
 		}
 	}
 }

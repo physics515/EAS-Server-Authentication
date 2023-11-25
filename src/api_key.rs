@@ -29,10 +29,10 @@ impl<'r> FromRequest<'r> for ApiKey {
 	async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
 		let keys: Vec<_> = request.headers().get("Authorization").collect();
 		match keys.len() {
-			0 => Outcome::Failure((Status::BadRequest, ApiKeyError::Missing)),
+			0 => Outcome::Error((Status::BadRequest, ApiKeyError::Missing)),
 			1 if is_valid(keys[0]).await => Outcome::Success(ApiKey(keys[0].to_string())),
-			1 => Outcome::Failure((Status::BadRequest, ApiKeyError::Invalid)),
-			_ => Outcome::Failure((Status::BadRequest, ApiKeyError::BadCount)),
+			1 => Outcome::Error((Status::BadRequest, ApiKeyError::Invalid)),
+			_ => Outcome::Error((Status::BadRequest, ApiKeyError::BadCount)),
 		}
 	}
 }

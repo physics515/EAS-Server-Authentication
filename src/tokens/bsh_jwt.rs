@@ -8,6 +8,7 @@ use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use playwright::api::Cookie as PlaywrightCookie;
+use rocket::http::Status;
 use rocket::request::Outcome;
 use rocket::request::{self, FromRequest, Request};
 use serde::{Deserialize, Serialize};
@@ -92,24 +93,24 @@ impl<'r> FromRequest<'r> for BSHJWTTokenClaims {
 	async fn from_request(_request: &'r Request<'_>) -> request::Outcome<BSHJWTTokenClaims, Self::Error> {
 		let mut file = match File::open("/easfiles/appliances/cookies/bsh_token.json") {
 			Ok(file) => file,
-			Err(_e) => return Outcome::Forward(()),
+			Err(_e) => return Outcome::Forward(Status::InternalServerError),
 		};
 		let mut contents = String::new();
 		match file.read_to_string(&mut contents) {
 			Ok(_) => (),
-			Err(_e) => return Outcome::Forward(()),
+			Err(_e) => return Outcome::Forward(Status::InternalServerError),
 		};
 		let token_json: serde_json::Value = match serde_json::from_str(&contents) {
 			Ok(token_json) => token_json,
-			Err(_e) => return Outcome::Forward(()),
+			Err(_e) => return Outcome::Forward(Status::InternalServerError),
 		};
 		let token_str = match token_json["token"].as_str() {
 			Some(token_str) => token_str,
-			None => return Outcome::Forward(()),
+			None => return Outcome::Forward(Status::InternalServerError),
 		};
 		match BSHJWTTokenClaims::decode(token_str).await {
 			Ok(token_claims) => Outcome::Success(token_claims),
-			Err(_e) => Outcome::Forward(()),
+			Err(_e) => Outcome::Forward(Status::InternalServerError),
 		}
 	}
 }

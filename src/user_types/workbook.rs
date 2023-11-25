@@ -2,6 +2,7 @@
 use std::fs::{self, File};
 use std::path::Path;
 
+use rocket::http::Status;
 use rocket::log::private::info;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
@@ -112,7 +113,7 @@ impl<'r> FromRequest<'r> for Workbook {
 			Some(cookie) => {
 				let key = match WorkbookJWTTokenClaims::decode(cookie.value()).await {
 					Ok(key) => key,
-					Err(_) => return Outcome::Forward(()),
+					Err(_) => return Outcome::Forward(Status::InternalServerError),
 				};
 				let workbook = Workbook { key: key.key, version: key.version };
 
@@ -120,7 +121,7 @@ impl<'r> FromRequest<'r> for Workbook {
 			}
 			None => {
 				info!("No User cookie found");
-				Outcome::Forward(())
+				Outcome::Forward(Status::BadRequest)
 			}
 		}
 	}
