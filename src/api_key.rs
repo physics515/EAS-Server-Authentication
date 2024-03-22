@@ -5,6 +5,7 @@ use azure_security_keyvault::KeyvaultClient;
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 
+#[allow(dead_code)]
 pub struct ApiKey(String);
 
 /// Returns true if `key` is a valid API key string.
