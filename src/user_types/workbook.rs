@@ -28,12 +28,14 @@ impl Workbook {
 	///
 	/// Creates a new Workbook.
 	///
-	pub async fn new(version: String) -> Result<Workbook, String> {
-		let mut key = WorkbookJWTTokenClaims::new_key().await;
+	/// # Errors
+	/// todo
+	pub fn new(version: &str) -> Result<Self, String> {
+		let mut key = WorkbookJWTTokenClaims::new_key();
 		let mut path = format!("/easfiles/workbook/{key:?}.json");
 
 		while Path::new(&path).exists() {
-			key = WorkbookJWTTokenClaims::new_key().await;
+			key = WorkbookJWTTokenClaims::new_key();
 			path = format!("/easfiles/workbook/{key:?}.json");
 		}
 
@@ -42,14 +44,14 @@ impl Workbook {
 			Err(e) => return Err(format!("Could not parse workbook version: {e:?}")),
 		};
 
-		let workbook = Workbook { key, version };
+		let workbook = Self { key, version };
 
 		// save workbook to file
 		match Path::new(&path).parent() {
 			Some(parent) => {
 				if !parent.exists() {
 					match fs::create_dir_all(parent) {
-						Ok(_) => (),
+						Ok(()) => (),
 						Err(e) => return Err(format!("Faild to create parent directory: {e}")),
 					};
 				}
@@ -67,7 +69,7 @@ impl Workbook {
 			Err(e) => return Err(e.to_string()),
 		};
 		match fs::write(path, json) {
-			Ok(_) => (),
+			Ok(()) => (),
 			Err(e) => return Err(e.to_string()),
 		};
 
@@ -77,21 +79,17 @@ impl Workbook {
 	///
 	/// Opens an existing workbook.
 	///
+	/// # Errors
+	/// todo
 	#[allow(dead_code)]
-	pub async fn open(key: String) -> Result<Workbook, String> {
+	pub fn open(key: &str) -> Result<Self, String> {
 		let path = format!("/easfiles/workbook/{key:?}.json");
-		let file = match File::open(path) {
-			Ok(file) => file,
-			Err(_) => {
-				return Err(format!("Workbook with key {key} does not exist."));
-			}
+		let Ok(file) = File::open(path) else {
+			return Err(format!("Workbook with key {key} does not exist."));
 		};
 
-		let workbook = match serde_json::from_reader(file) {
-			Ok(workbook) => workbook,
-			Err(_) => {
-				return Err(format!("Faild to open workbook {key}."));
-			}
+		let Ok(workbook) = serde_json::from_reader(file) else {
+			return Err(format!("Faild to open workbook {key}."));
 		};
 
 		Ok(workbook)
@@ -106,23 +104,17 @@ impl Workbook {
 impl<'r> FromRequest<'r> for Workbook {
 	type Error = std::convert::Infallible;
 
-	async fn from_request(request: &'r Request<'_>) -> request::Outcome<Workbook, Self::Error> {
+	async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
 		let cookie = request.cookies().get("eggersmann-workbook-jwt");
 
-		match cookie {
-			Some(cookie) => {
-				let key = match WorkbookJWTTokenClaims::decode(cookie.value()).await {
-					Ok(key) => key,
-					Err(_) => return Outcome::Forward(Status::InternalServerError),
-				};
-				let workbook = Workbook { key: key.key, version: key.version };
+		if let Some(cookie) = cookie {
+			let Ok(key) = WorkbookJWTTokenClaims::decode(cookie.value()).await else { return Outcome::Forward(Status::InternalServerError) };
+			let workbook = Self { key: key.key, version: key.version };
 
-				Outcome::Success(workbook)
-			}
-			None => {
-				info!("No User cookie found");
-				Outcome::Forward(Status::BadRequest)
-			}
+			Outcome::Success(workbook)
+		} else {
+			info!("No User cookie found");
+			Outcome::Forward(Status::BadRequest)
 		}
 	}
 }

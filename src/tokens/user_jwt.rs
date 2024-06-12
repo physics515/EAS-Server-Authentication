@@ -1,7 +1,5 @@
 #![warn(missing_docs)]
-use std::sync::Arc;
 
-use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -38,8 +36,10 @@ pub struct UserJWTTokenClaims {
 
 impl UserJWTTokenClaims {
 	///
-	/// Encodes the UserJWTTokenClaims into a JWT string.
+	/// Encodes the `UserJWTTokenClaims` into a JWT string.
 	///
+	/// # Errors
+	/// todo
 	pub async fn encode(ms_token: MSAccessToken) -> Result<String, String> {
 		let client = reqwest::Client::new();
 		let response = client.get("https://graph.microsoft.com/v1.0/me").bearer_auth(&ms_token.access_token).send().await;
@@ -56,28 +56,28 @@ impl UserJWTTokenClaims {
 					None => return Err("Failed to get user id".to_string()),
 				};
 
-				let given_name = body["givenName"].as_str().map(|given_name| given_name.to_string());
+				let given_name = body["givenName"].as_str().map(std::string::ToString::to_string);
 
-				let surname = body["surname"].as_str().map(|surname| surname.to_string());
+				let surname = body["surname"].as_str().map(std::string::ToString::to_string);
 
-				let display_name = body["displayName"].as_str().map(|display_name| display_name.to_string());
+				let display_name = body["displayName"].as_str().map(std::string::ToString::to_string);
 
-				let job_title = body["jobTitle"].as_str().map(|job_title| job_title.to_string());
+				let job_title = body["jobTitle"].as_str().map(std::string::ToString::to_string);
 
-				let jwt_token_claim = UserJWTTokenClaims {
+				let jwt_token_claim = Self {
 					id,
 					given_name,
 					surname,
 					display_name,
 					job_title,
-					user_principal_name: body["userPrincipalName"].as_str().map(|s| s.to_string()),
-					office_location: body["officeLocation"].as_str().map(|s| s.to_string()),
+					user_principal_name: body["userPrincipalName"].as_str().map(std::string::ToString::to_string),
+					office_location: body["officeLocation"].as_str().map(std::string::ToString::to_string),
 					ms_token: ms_token.clone(),
 					exp: jsonwebtoken::get_current_timestamp() + ms_token.expires_in,
 				};
 
-				let azure_credentials = ImdsManagedIdentityCredential::default();
-				let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
+				let azure_credentials = azure_identity::create_credential().map_err(|e| format!("Failed to create Azure credentials: {e:?}"))?;
+				let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials) {
 					Ok(client) => client,
 					Err(e) => return Err(format!("Failed to create key client: {e:?}")),
 				};
@@ -101,9 +101,11 @@ impl UserJWTTokenClaims {
 	///
 	/// Decodes the JWT string into a User.
 	///
+	/// # Errors
+	/// todo
 	pub async fn decode(token: &str) -> Result<User, String> {
-		let azure_credentials = ImdsManagedIdentityCredential::default();
-		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
+		let azure_credentials = azure_identity::create_credential().map_err(|e| format!("Failed to create Azure credentials: {e:?}"))?;
+		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials) {
 			Ok(client) => client,
 			Err(e) => return Err(format!("Failed to create key client: {e:?}")),
 		};
@@ -114,7 +116,7 @@ impl UserJWTTokenClaims {
 		let key = user_token_secret.value;
 		let key = DecodingKey::from_secret(key.as_bytes());
 		let validation = Validation::default();
-		let claims = decode::<UserJWTTokenClaims>(token, &key, &validation);
+		let claims = decode::<Self>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(User { token: claims.claims }),
 			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),

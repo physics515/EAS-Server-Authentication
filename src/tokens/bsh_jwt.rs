@@ -2,9 +2,7 @@
 use std::fmt::Display;
 use std::fs::File;
 use std::io::Read;
-use std::sync::Arc;
 
-use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use playwright::api::Cookie as PlaywrightCookie;
@@ -34,13 +32,15 @@ impl Display for BSHJWTTokenClaims {
 
 impl BSHJWTTokenClaims {
 	///
-	/// Encodes the BSHJWTTokenClaims into a JWT string.
+	/// Encodes the `BSHJWTTokenClaims` into a JWT string.
 	///
+	/// # Errors
+	/// todo
 	pub async fn encode(bsh_cookies: Vec<PlaywrightCookie>) -> Result<String, String> {
-		let jwt_token_claim = BSHJWTTokenClaims { exp: jsonwebtoken::get_current_timestamp() + 3600, bsh_cookies };
+		let jwt_token_claim = Self { exp: jsonwebtoken::get_current_timestamp() + 3600, bsh_cookies };
 
-		let azure_credentials = ImdsManagedIdentityCredential::default();
-		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
+		let azure_credentials = azure_identity::create_credential().map_err(|e| format!("Failed to create Azure credentials: {e:?}"))?;
+		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials) {
 			Ok(client) => client,
 			Err(e) => return Err(format!("Faild to login to Azure Key Vault: {e:?}")),
 		};
@@ -59,11 +59,13 @@ impl BSHJWTTokenClaims {
 	}
 
 	///
-	/// Decodes the JWT string into a BSHJWTTokenClaims.
+	/// Decodes the JWT string into a `BSHJWTTokenClaims`.
 	///
-	pub async fn decode(token: &str) -> Result<BSHJWTTokenClaims, String> {
-		let azure_credentials = ImdsManagedIdentityCredential::default();
-		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
+	/// # Errors
+	/// todo
+	pub async fn decode(token: &str) -> Result<Self, String> {
+		let azure_credentials = azure_identity::create_credential().map_err(|e| format!("Failed to create Azure credentials: {e:?}"))?;
+		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials) {
 			Ok(client) => client,
 			Err(e) => return Err(format!("Faild to login to Azure Key Vault: {e:?}")),
 		};
@@ -74,9 +76,9 @@ impl BSHJWTTokenClaims {
 		let key = user_token_secret.value;
 		let key = DecodingKey::from_secret(key.as_bytes());
 		let validation = Validation::default();
-		let claims = decode::<BSHJWTTokenClaims>(token, &key, &validation);
+		let claims = decode::<Self>(token, &key, &validation);
 		match claims {
-			Ok(claims) => Ok(BSHJWTTokenClaims { exp: claims.claims.exp, bsh_cookies: claims.claims.bsh_cookies }),
+			Ok(claims) => Ok(Self { exp: claims.claims.exp, bsh_cookies: claims.claims.bsh_cookies }),
 			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
 		}
 	}
@@ -90,7 +92,7 @@ impl BSHJWTTokenClaims {
 impl<'r> FromRequest<'r> for BSHJWTTokenClaims {
 	type Error = std::convert::Infallible;
 
-	async fn from_request(_request: &'r Request<'_>) -> request::Outcome<BSHJWTTokenClaims, Self::Error> {
+	async fn from_request(_request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
 		let mut file = match File::open("/easfiles/appliances/cookies/bsh_token.json") {
 			Ok(file) => file,
 			Err(_e) => return Outcome::Forward(Status::InternalServerError),
@@ -104,11 +106,8 @@ impl<'r> FromRequest<'r> for BSHJWTTokenClaims {
 			Ok(token_json) => token_json,
 			Err(_e) => return Outcome::Forward(Status::InternalServerError),
 		};
-		let token_str = match token_json["token"].as_str() {
-			Some(token_str) => token_str,
-			None => return Outcome::Forward(Status::InternalServerError),
-		};
-		match BSHJWTTokenClaims::decode(token_str).await {
+		let Some(token_str) = token_json["token"].as_str() else { return Outcome::Forward(Status::InternalServerError) };
+		match Self::decode(token_str).await {
 			Ok(token_claims) => Outcome::Success(token_claims),
 			Err(_e) => Outcome::Forward(Status::InternalServerError),
 		}

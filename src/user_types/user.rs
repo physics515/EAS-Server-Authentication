@@ -25,16 +25,13 @@ pub struct User {
 impl<'r> FromRequest<'r> for User {
 	type Error = std::convert::Infallible;
 
-	async fn from_request(request: &'r Request<'_>) -> request::Outcome<User, Self::Error> {
+	async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
 		let cookie = request.cookies().get("eggersmann-user-jwt");
 
 		match cookie {
 			Some(cookie) => {
 				let user = UserJWTTokenClaims::decode(cookie.value()).await;
-				match user {
-					Ok(user) => Outcome::Success(user),
-					Err(_) => Outcome::Forward(Status::BadRequest),
-				}
+				user.map_or(Outcome::Forward(Status::BadRequest), Outcome::Success)
 			}
 			None => Outcome::Forward(Status::BadRequest),
 		}

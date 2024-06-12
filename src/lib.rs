@@ -1,8 +1,9 @@
+#![warn(clippy::pedantic, clippy::nursery, clippy::all, clippy::cargo)]
+#![allow(clippy::multiple_crate_versions, clippy::module_name_repetitions)]
+
 use std::collections::HashMap;
-use std::sync::Arc;
 
 pub use api_key::*;
-use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use rocket::uri;
 pub use tokens::*;
@@ -12,10 +13,12 @@ mod api_key;
 mod tokens;
 mod user_types;
 
+/// # Panics
+/// todo
 pub async fn microsoft_365_auth_url() -> String {
 	let mut params = HashMap::new();
-	let azure_credentials = ImdsManagedIdentityCredential::default();
-	let client = KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)).unwrap();
+	let azure_credentials = azure_identity::create_credential().unwrap();
+	let client = KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials).unwrap();
 
 	let ms_auth_client_id = client.secret_client().get("ms-auth-client-id").await.unwrap();
 	let ms_auth_response_type = client.secret_client().get("ms-auth-response-type").await.unwrap();
@@ -33,10 +36,12 @@ pub async fn microsoft_365_auth_url() -> String {
 	params.insert("scope", ms_auth_scope.value);
 	params.insert("state", state);
 
-	url::form_urlencoded::Serializer::new(ms_auth_url.value.to_owned()).extend_pairs(params).finish()
+	url::form_urlencoded::Serializer::new(ms_auth_url.value.clone()).extend_pairs(params).finish()
 }
 
+/// # Errors
+/// todo
 pub async fn microsoft_365_code_to_user_token(code: &str) -> Result<String, String> {
-	let ms_token = MSAccessToken::new(code.to_string()).await;
+	let ms_token = MSAccessToken::new(code.to_string()).await?;
 	UserJWTTokenClaims::encode(ms_token).await
 }

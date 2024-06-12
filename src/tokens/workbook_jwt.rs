@@ -2,9 +2,7 @@
 use std::fmt::Display;
 use std::str;
 use std::str::FromStr;
-use std::sync::Arc;
 
-use azure_identity::ImdsManagedIdentityCredential;
 use azure_security_keyvault::KeyvaultClient;
 use chrono::prelude::*;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -31,12 +29,14 @@ pub struct WorkbookJWTTokenClaims {
 
 impl WorkbookJWTTokenClaims {
 	///
-	/// Encodes the WorkbookJWTTokenClaims into a JWT string.
+	/// Encodes the `WorkbookJWTTokenClaims` into a JWT string.
 	///
+	/// # Errors
+	/// todo
 	pub async fn encode(key: String, version: WorkBookVersions) -> Result<String, String> {
-		let jwt_token_claim = WorkbookJWTTokenClaims { key, version, exp: jsonwebtoken::get_current_timestamp() + 3124135674 };
-		let azure_credentials = ImdsManagedIdentityCredential::default();
-		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
+		let jwt_token_claim = Self { key, version, exp: jsonwebtoken::get_current_timestamp() + 3_124_135_674 };
+		let azure_credentials = azure_identity::create_credential().map_err(|e| format!("Failed to create Azure credentials: {e:?}"))?;
+		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials) {
 			Ok(client) => client,
 			Err(e) => return Err(format!("Faild to login to Azure Key Vault: {e:?}")),
 		};
@@ -57,9 +57,14 @@ impl WorkbookJWTTokenClaims {
 	///
 	/// Decodes the JWT string into a Workbook.
 	///
-	pub async fn decode(token: &str) -> Result<WorkbookJWTTokenClaims, String> {
-		let azure_credentials = ImdsManagedIdentityCredential::default();
-		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", Arc::new(azure_credentials)) {
+	/// # Errors
+	/// todo
+	///
+	/// # Panics
+	/// todo
+	pub async fn decode(token: &str) -> Result<Self, String> {
+		let azure_credentials = azure_identity::create_credential().unwrap();
+		let client = match KeyvaultClient::new("https://eggappserverkeyvault.vault.azure.net", azure_credentials) {
 			Ok(client) => client,
 			Err(e) => return Err(format!("Faild to login to Azure Key Vault: {e:?}")),
 		};
@@ -70,7 +75,7 @@ impl WorkbookJWTTokenClaims {
 		let key = workbook_token_secret.value;
 		let key = DecodingKey::from_secret(key.as_bytes());
 		let validation = Validation::default();
-		let claims = decode::<WorkbookJWTTokenClaims>(token, &key, &validation);
+		let claims = decode::<Self>(token, &key, &validation);
 		match claims {
 			Ok(claims) => Ok(claims.claims),
 			Err(e) => Err(format!("Failed to decode JWT token: {e:?}")),
@@ -81,7 +86,8 @@ impl WorkbookJWTTokenClaims {
 	/// Generates a random key for the Workbook JSON Web Token (JWT).
 	/// todo: this should check for uniqueness.
 	///
-	pub async fn new_key() -> String {
+	#[must_use]
+	pub fn new_key() -> String {
 		let salt = random::<u128>();
 		let date = Utc::now();
 		let date_string = date.to_rfc3339();
@@ -108,7 +114,7 @@ impl FromStr for WorkBookVersions {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s.to_lowercase().as_str() {
-			"v35.9.4" => Ok(WorkBookVersions::V35_9_4),
+			"v35.9.4" => Ok(Self::V35_9_4),
 			_ => Err(()),
 		}
 	}
@@ -117,7 +123,7 @@ impl FromStr for WorkBookVersions {
 impl Display for WorkBookVersions {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			WorkBookVersions::V35_9_4 => write!(f, "v35.9.4"),
+			Self::V35_9_4 => write!(f, "v35.9.4"),
 		}
 	}
 }
