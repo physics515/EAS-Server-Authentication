@@ -10,11 +10,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MSAccessToken {
 	/// Type of token
-	pub token_type: String,
+	pub token_type: Option<String>,
+
 	/// Expiration duration
 	pub expires_in: u64,
+
 	/// Extention expiration duration
 	pub ext_expires_in: u64,
+        
 	/// Token
 	pub access_token: String,
 }
