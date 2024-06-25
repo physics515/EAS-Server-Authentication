@@ -42,6 +42,10 @@ pub async fn microsoft_365_auth_url() -> String {
 /// # Errors
 /// todo
 pub async fn microsoft_365_code_to_user_token(code: &str) -> Result<String, String> {
+        println!("Creating new MSAccessToken from code");
 	let ms_token = MSAccessToken::new(code.to_string()).await?;
+        println!("MSAccessToken Created Successfully");
+
+        println!("Creating new UserJWTTokenClaims from MSAccessToken");
 	UserJWTTokenClaims::encode(ms_token).await
 }

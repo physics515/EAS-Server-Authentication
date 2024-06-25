@@ -101,6 +101,15 @@ impl MSAccessToken {
 			Err(e) => return Err(format!("Failed to send request to Microsoft Authentication endpoint: {e:?}")),
 		};
 
-		(response.json::<Self>().await).map_err(|e| format!("Failed to parse response from Microsoft Authentication endpoint: {e:?}"))
+                let response_json = response.json::<serde_json::Value>().await.map_err(|e| format!("Failed to parse response from Microsoft Authentication endpoint: {e:?}"))?;
+
+                println!("Response JSON: {response_json}");
+
+                let ms_access_token = match serde_json::from_value::<Self>(response_json) {
+                        Ok(token) => token,
+                        Err(e) => return Err(format!("Failed to parse response from Microsoft Authentication endpoint: {e:?}")),
+                };
+
+		Ok(ms_access_token)
 	}
 }
